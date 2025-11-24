@@ -226,7 +226,7 @@ async function processPendingUpdates(): Promise<number> {
 
   try {
     // Получаем все пропущенные updates (максимум 100 за раз)
-    const updates = await bot.telegram.getUpdates(offset, 100, 0);
+    const updates = await bot.telegram.getUpdates(0, 100, offset || 0, undefined);
 
     if (updates.length === 0) {
       console.log('✅ Нет пропущенных сообщений');
@@ -240,7 +240,7 @@ async function processPendingUpdates(): Promise<number> {
 
     for (const update of updates) {
       // Обрабатываем только сообщения с текстом от пользователей
-      if (update.message && 'text' in update.message && update.message.from && !update.message.from.is_bot) {
+      if ('message' in update && update.message && 'text' in update.message && update.message.from && !update.message.from.is_bot) {
         const chatId = update.message.chat.id;
         const user = update.message.from;
 
