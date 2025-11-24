@@ -2,6 +2,7 @@ import { Telegraf, Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { config } from 'dotenv';
 import { phrases } from './phrases';
+import { UserStore } from './userStore';
 
 config();
 
@@ -14,94 +15,79 @@ if (!BOT_TOKEN) {
 }
 
 const bot = new Telegraf(BOT_TOKEN);
+const userStore = new UserStore();
 
 // Функция для получения случайной фразы
 function getRandomPhrase(): string {
   return phrases[Math.floor(Math.random() * phrases.length)];
 }
 
-// Функция для получения всех участников чата и создания тегов
-async function tagAllMembers(ctx: Context): Promise<string> {
-  if (!ctx.chat || ctx.chat.type === 'private') {
-    return '⚠️ Эта команда работает только в группах!';
-  }
+// Функция для добавления пользователя в базу
+function addUserToStore(ctx: Context): void {
+  if (!ctx.from || ctx.from.is_bot || !ctx.chat) return;
 
-  try {
-    const chatId = ctx.chat.id;
-    const administrators = await ctx.telegram.getChatAdministrators(chatId);
-
-    // Получаем количество участников
-    const chatMembersCount = await ctx.telegram.getChatMembersCount(chatId);
-
-    // Создаем теги для всех администраторов (а в них обычно входят и обычные участники если группа небольшая)
-    const tags: string[] = [];
-
-    for (const admin of administrators) {
-      const user = admin.user;
-      if (!user.is_bot) {
-        // Используем username если есть, иначе first_name
-        if (user.username) {
-          tags.push(`@${user.username}`);
-        } else {
-          // Для пользователей без username создаем текстовое упоминание
-          tags.push(`[${user.first_name}](tg://user?id=${user.id})`);
-        }
-      }
-    }
-
-    // Если нашли мало людей, добавляем невидимые упоминания для всех
-    // (это обойдет ограничение API, но не получится тегнуть всех поименно)
-    if (tags.length < 5 && chatMembersCount > 10) {
-      return `⚠️ В больших группах Telegram ограничивает получение списка всех участников.\n\nНайдено участников для тега: ${tags.length}\n\nВы можете:\n1. Дать боту права администратора (тогда он увидит больше участников)\n2. Использовать команду всё равно для тега найденных участников\n3. Добавить участников вручную через reply на их сообщения\n\nТеги найденных: ${tags.join(' ')}`;
-    }
-
-    return tags.join(' ');
-  } catch (error) {
-    console.error('Ошибка при получении участников:', error);
-    return '⚠️ Не удалось получить список участников. Убедитесь что бот является администратором группы!';
-  }
+  userStore.addUser(
+    ctx.chat.id,
+    ctx.from.id,
+    ctx.from.username,
+    ctx.from.first_name,
+    ctx.from.last_name
+  );
 }
 
 // Команда /start
 bot.command('start', (ctx) => {
+  addUserToStore(ctx);
+
   const welcomeMessage = `
 🎮 **Бот для сбора на CS готов!**
 
 **Доступные команды:**
 
 /cs - Позвать всех играть в CS с рандомной фразой
+/register - Добавить себя в список (если не писал в чат)
+/list - Посмотреть кто в списке
 /phrase - Получить случайную мотивационную фразу
 /help - Показать это сообщение
 
-**Как использовать:**
-1. Добавьте бота в группу
-2. Дайте боту права администратора (чтобы он мог видеть участников)
-3. Используйте команду /cs когда хотите собрать команду!
+**Как это работает:**
+Бот автоматически запоминает всех, кто пишет в группе!
+Когда кто-то пишет /cs, бот тегает всех из списка.
 
-Бот будет тегать всех участников группы с прикольной фразой про CS! 🔥
+**Первый запуск:**
+Просто попросите всех написать что-нибудь в группе или /register,
+и бот запомнит их! 🔥
+
+Количество людей в базе этого чата: ${userStore.getUserCount(ctx.chat?.id || 0)}
 `;
   ctx.reply(welcomeMessage, { parse_mode: 'Markdown' });
 });
 
 // Команда /help
 bot.command('help', (ctx) => {
+  addUserToStore(ctx);
+
   const helpMessage = `
 📖 **Помощь по боту**
 
 **Команды:**
 • /cs - Тегнуть всех и позвать играть
+• /register - Добавиться в список игроков
+• /list - Посмотреть кто в списке
 • /phrase - Случайная фраза (без тега)
 • /start - Приветственное сообщение
 • /help - Эта справка
 
-**Советы:**
-• Бот работает только в группах
-• Для лучшей работы дайте боту права администратора
-• Фразы выбираются случайно из 500+ вариантов
-• Можно использовать в любых чатах где есть бот
+**Как это работает:**
+• Бот автоматически добавляет в список всех, кто пишет в группе
+• Используйте /register если хотите добавиться не отправляя сообщение
+• Команда /cs тегает всех из списка с прикольной фразой
+• 500+ разных фраз на тематику CS и игр!
 
-**Проблемы?**
-Если бот не тегает всех участников - убедитесь что он администратор группы.
+**Советы:**
+• При первом запуске попросите всех написать /register
+• Права администратора боту НЕ нужны!
+• Бот работает в любых группах и супергруппах
 
 Приятной игры! 🎯
 `;
@@ -110,8 +96,45 @@ bot.command('help', (ctx) => {
 
 // Команда /phrase - просто случайная фраза без тегов
 bot.command('phrase', (ctx) => {
+  addUserToStore(ctx);
   const phrase = getRandomPhrase();
   ctx.reply(`💬 ${phrase}`);
+});
+
+// Команда /register - добавить себя в список игроков
+bot.command('register', (ctx) => {
+  if (!ctx.chat || ctx.chat.type === 'private') {
+    ctx.reply('⚠️ Эта команда работает только в группах!');
+    return;
+  }
+
+  addUserToStore(ctx);
+  const username = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name;
+  const count = userStore.getUserCount(ctx.chat.id);
+  ctx.reply(`✅ ${username} добавлен в список! Всего игроков: ${count}`);
+});
+
+// Команда /list - показать всех кто в списке
+bot.command('list', (ctx) => {
+  if (!ctx.chat || ctx.chat.type === 'private') {
+    ctx.reply('⚠️ Эта команда работает только в группах!');
+    return;
+  }
+
+  addUserToStore(ctx);
+  const users = userStore.getUsers(ctx.chat.id);
+
+  if (users.length === 0) {
+    ctx.reply('📝 Список пока пуст! Напишите что-нибудь в чат или /register чтобы добавиться.');
+    return;
+  }
+
+  const userList = users.map((user, index) => {
+    const name = user.username ? `@${user.username}` : user.first_name;
+    return `${index + 1}. ${name}`;
+  }).join('\n');
+
+  ctx.reply(`📝 **Список игроков (${users.length}):**\n\n${userList}`, { parse_mode: 'Markdown' });
 });
 
 // Основная команда /cs - тегаем всех и зовем играть
@@ -121,15 +144,16 @@ bot.command('cs', async (ctx) => {
     return;
   }
 
-  const phrase = getRandomPhrase();
-  const tags = await tagAllMembers(ctx);
+  addUserToStore(ctx);
 
-  // Проверяем, является ли результат сообщением об ошибке
-  if (tags.startsWith('⚠️')) {
-    ctx.reply(tags, { parse_mode: 'Markdown' });
+  const tags = userStore.createTags(ctx.chat.id);
+
+  if (!tags) {
+    ctx.reply('⚠️ В списке еще никого нет! Попросите всех написать /register или любое сообщение в чат.');
     return;
   }
 
+  const phrase = getRandomPhrase();
   const message = `🎮 ${phrase}\n\n${tags}`;
 
   ctx.reply(message, { parse_mode: 'Markdown' });
@@ -137,19 +161,25 @@ bot.command('cs', async (ctx) => {
 
 // Альтернативные команды (алиасы)
 bot.command('го', async (ctx) => {
+  addUserToStore(ctx);
   ctx.telegram.sendMessage(ctx.chat!.id, '⚡ Используй /cs чтобы позвать всех!');
 });
 
 bot.command('игра', async (ctx) => {
+  addUserToStore(ctx);
   ctx.telegram.sendMessage(ctx.chat!.id, '⚡ Используй /cs чтобы позвать всех!');
 });
 
 bot.command('катка', async (ctx) => {
+  addUserToStore(ctx);
   ctx.telegram.sendMessage(ctx.chat!.id, '⚡ Используй /cs чтобы позвать всех!');
 });
 
-// Обработка упоминаний бота в сообщениях
+// Обработка всех текстовых сообщений - добавляем пользователей в базу
 bot.on(message('text'), async (ctx) => {
+  // Добавляем пользователя в базу при любом сообщении
+  addUserToStore(ctx);
+
   const text = ctx.message.text.toLowerCase();
   const botUsername = ctx.botInfo.username.toLowerCase();
 
@@ -169,14 +199,88 @@ bot.on(message('text'), async (ctx) => {
   }
 });
 
+// Middleware для отслеживания update_id
+bot.use((ctx, next) => {
+  if (ctx.update && ctx.update.update_id) {
+    userStore.setLastUpdateId(ctx.update.update_id);
+  }
+  return next();
+});
+
 // Обработка ошибок
 bot.catch((err, ctx) => {
   console.error(`❌ Ошибка для ${ctx.updateType}:`, err);
 });
 
+// Функция для обработки пропущенных updates при запуске
+async function processPendingUpdates(): Promise<number> {
+  const lastUpdateId = userStore.getLastUpdateId();
+  const offset = lastUpdateId ? lastUpdateId + 1 : undefined;
+
+  console.log('🔄 Проверка пропущенных сообщений...');
+  if (offset) {
+    console.log(`   Последний обработанный update: ${lastUpdateId}`);
+  } else {
+    console.log('   Первый запуск, история не обрабатывается');
+  }
+
+  try {
+    // Получаем все пропущенные updates (максимум 100 за раз)
+    const updates = await bot.telegram.getUpdates(offset, 100, 0);
+
+    if (updates.length === 0) {
+      console.log('✅ Нет пропущенных сообщений');
+      return 0;
+    }
+
+    console.log(`📥 Обработка ${updates.length} пропущенных сообщений...`);
+
+    let addedUsers = 0;
+    let processedChats = new Set<number>();
+
+    for (const update of updates) {
+      // Обрабатываем только сообщения с текстом от пользователей
+      if (update.message && 'text' in update.message && update.message.from && !update.message.from.is_bot) {
+        const chatId = update.message.chat.id;
+        const user = update.message.from;
+
+        // Добавляем пользователя
+        userStore.addUser(
+          chatId,
+          user.id,
+          user.username,
+          user.first_name,
+          user.last_name
+        );
+
+        processedChats.add(chatId);
+        addedUsers++;
+      }
+
+      // Обновляем offset
+      userStore.setLastUpdateId(update.update_id);
+    }
+
+    console.log(`✅ Добавлено пользователей: ${addedUsers} из ${processedChats.size} чата(ов)`);
+    return addedUsers;
+  } catch (error) {
+    console.error('❌ Ошибка при обработке пропущенных сообщений:', error);
+    return 0;
+  }
+}
+
 // Запуск бота
 console.log('🚀 Бот запускается...');
-bot.launch()
+
+// Сначала обрабатываем пропущенные updates
+processPendingUpdates()
+  .then((count) => {
+    if (count > 0) {
+      console.log(`📊 База обновлена: +${count} пользователей`);
+    }
+    // Затем запускаем бота в обычном режиме
+    return bot.launch();
+  })
   .then(() => {
     console.log('✅ Бот успешно запущен!');
     console.log(`📱 Бот @${bot.botInfo?.username} готов к работе!`);
