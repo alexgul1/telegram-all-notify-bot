@@ -142,6 +142,12 @@ export class UserStore {
     this.saveUsers();
   }
 
+  // Экранирование специальных символов Markdown
+  private escapeMarkdown(text: string): string {
+    // Экранируем символы которые имеют специальное значение в Markdown
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
+  }
+
   createTags(chatId: number): string {
     const users = this.getUsers(chatId);
 
@@ -150,12 +156,12 @@ export class UserStore {
     }
 
     const tags = users.map(user => {
-      // Если есть username - используем @username
+      // Если есть username - используем @username (экранируем спецсимволы)
       if (user.username) {
-        return `@${user.username}`;
+        return `@${this.escapeMarkdown(user.username)}`;
       }
-      // Иначе создаем mention по ID
-      return `[${user.first_name}](tg://user?id=${user.id})`;
+      // Иначе создаем mention по ID (экранируем имя)
+      return `[${this.escapeMarkdown(user.first_name)}](tg://user?id=${user.id})`;
     });
 
     return tags.join(' ');
