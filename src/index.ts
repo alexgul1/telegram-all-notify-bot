@@ -17,9 +17,17 @@ if (!BOT_TOKEN) {
 const bot = new Telegraf(BOT_TOKEN);
 const userStore = new UserStore();
 
-// Функция для получения случайной фразы
-function getRandomPhrase(): string {
-  return phrases[Math.floor(Math.random() * phrases.length)];
+// Функция для получения случайной фразы (глобальные + кастомные для чата)
+function getRandomPhrase(chatId?: number): string {
+  let allPhrases = [...phrases];
+
+  // Добавляем кастомные фразы если есть chatId
+  if (chatId) {
+    const customPhrases = userStore.getCustomPhrases(chatId);
+    allPhrases = [...allPhrases, ...customPhrases];
+  }
+
+  return allPhrases[Math.floor(Math.random() * allPhrases.length)];
 }
 
 // Функция для добавления пользователя в базу
@@ -42,23 +50,26 @@ bot.command('start', (ctx) => {
   const welcomeMessage = `
 🎮 **Бот для сбора на CS готов!**
 
-**Доступные команды:**
+**Основные команды:**
 
 /cs - Позвать всех играть в CS с рандомной фразой
 /register - Добавить себя в список (если не писал в чат)
 /list - Посмотреть кто в списке
-/phrase - Получить случайную мотивационную фразу
-/help - Показать это сообщение
+/phrase - Получить случайную фразу
+
+**Кастомные фразы:**
+
+/addphrase <текст> - Добавить свою фразу
+/listphrases - Список кастомных фраз группы
+/removephrase <номер> - Удалить фразу
 
 **Как это работает:**
 Бот автоматически запоминает всех, кто пишет в группе!
-Когда кто-то пишет /cs, бот тегает всех из списка.
+Когда кто-то пишет /cs, бот тегает всех из списка с прикольной фразой.
+У бота 600+ встроенных фраз + ваши кастомные! 🔥
 
-**Первый запуск:**
-Просто попросите всех написать что-нибудь в группе или /register,
-и бот запомнит их! 🔥
-
-Количество людей в базе этого чата: ${userStore.getUserCount(ctx.chat?.id || 0)}
+Количество людей в базе: ${userStore.getUserCount(ctx.chat?.id || 0)}
+Кастомных фраз: ${userStore.getCustomPhrases(ctx.chat?.id || 0).length}
 `;
   ctx.reply(welcomeMessage, { parse_mode: 'Markdown' });
 });
@@ -70,24 +81,31 @@ bot.command('help', (ctx) => {
   const helpMessage = `
 📖 **Помощь по боту**
 
-**Команды:**
+**Основные команды:**
 • /cs - Тегнуть всех и позвать играть
 • /register - Добавиться в список игроков
 • /list - Посмотреть кто в списке
 • /phrase - Случайная фраза (без тега)
-• /start - Приветственное сообщение
-• /help - Эта справка
+
+**Кастомные фразы группы:**
+• /addphrase <текст> - Добавить свою фразу
+• /listphrases - Показать все кастомные фразы
+• /removephrase <номер> - Удалить фразу по номеру
+
+**Примеры:**
+/addphrase ВАСА ПИСА КИК СОУ! Го играть!
+/addphrase Бинго банго! Катка началась!
 
 **Как это работает:**
 • Бот автоматически добавляет в список всех, кто пишет в группе
-• Используйте /register если хотите добавиться не отправляя сообщение
 • Команда /cs тегает всех из списка с прикольной фразой
-• 500+ разных фраз на тематику CS и игр!
+• 600+ встроенных фраз + ваши кастомные для группы!
+• Каждая группа имеет свой список кастомных фраз
 
 **Советы:**
 • При первом запуске попросите всех написать /register
 • Права администратора боту НЕ нужны!
-• Бот работает в любых группах и супергруппах
+• Добавляйте свои внутренние шутки через /addphrase
 
 Приятной игры! 🎯
 `;
@@ -97,7 +115,7 @@ bot.command('help', (ctx) => {
 // Команда /phrase - просто случайная фраза без тегов
 bot.command('phrase', (ctx) => {
   addUserToStore(ctx);
-  const phrase = getRandomPhrase();
+  const phrase = getRandomPhrase(ctx.chat?.id);
   ctx.reply(`💬 ${phrase}`);
 });
 
@@ -153,10 +171,80 @@ bot.command('cs', async (ctx) => {
     return;
   }
 
-  const phrase = getRandomPhrase();
+  const phrase = getRandomPhrase(ctx.chat.id);
   const message = `🎮 ${phrase}\n\n${tags}`;
 
   ctx.reply(message, { parse_mode: 'Markdown' });
+});
+
+// Команда /addphrase - добавить кастомную фразу для группы
+bot.command('addphrase', (ctx) => {
+  if (!ctx.chat || ctx.chat.type === 'private') {
+    ctx.reply('⚠️ Эта команда работает только в группах!');
+    return;
+  }
+
+  addUserToStore(ctx);
+
+  // Получаем текст после команды
+  const args = ctx.message.text.split(' ').slice(1).join(' ').trim();
+
+  if (!args) {
+    ctx.reply('⚠️ Укажите фразу после команды!\nПример: /addphrase Вперед на врага!');
+    return;
+  }
+
+  userStore.addCustomPhrase(ctx.chat.id, args);
+  ctx.reply(`✅ Фраза добавлена: "${args}"\n\nТеперь она будет использоваться вместе с основными фразами при вызове /cs`);
+});
+
+// Команда /listphrases - показать все кастомные фразы группы
+bot.command('listphrases', (ctx) => {
+  if (!ctx.chat || ctx.chat.type === 'private') {
+    ctx.reply('⚠️ Эта команда работает только в группах!');
+    return;
+  }
+
+  addUserToStore(ctx);
+
+  const customPhrases = userStore.getCustomPhrases(ctx.chat.id);
+
+  if (customPhrases.length === 0) {
+    ctx.reply('📝 У этой группы пока нет кастомных фраз.\n\nДобавьте первую командой:\n/addphrase Ваша фраза');
+    return;
+  }
+
+  const phraseList = customPhrases.map((phrase, index) => {
+    return `${index + 1}. ${phrase}`;
+  }).join('\n');
+
+  ctx.reply(`📝 **Кастомные фразы группы (${customPhrases.length}):**\n\n${phraseList}\n\n_Удалить: /removephrase номер_`, { parse_mode: 'Markdown' });
+});
+
+// Команда /removephrase - удалить кастомную фразу
+bot.command('removephrase', (ctx) => {
+  if (!ctx.chat || ctx.chat.type === 'private') {
+    ctx.reply('⚠️ Эта команда работает только в группах!');
+    return;
+  }
+
+  addUserToStore(ctx);
+
+  const args = ctx.message.text.split(' ').slice(1);
+  const index = parseInt(args[0]);
+
+  if (isNaN(index) || index < 1) {
+    ctx.reply('⚠️ Укажите номер фразы!\nПример: /removephrase 3\n\nСписок фраз: /listphrases');
+    return;
+  }
+
+  const success = userStore.removeCustomPhrase(ctx.chat.id, index - 1);
+
+  if (success) {
+    ctx.reply(`✅ Фраза #${index} удалена!`);
+  } else {
+    ctx.reply(`⚠️ Фраза #${index} не найдена. Проверьте список: /listphrases`);
+  }
 });
 
 // Альтернативные команды (алиасы)
@@ -193,7 +281,7 @@ bot.on(message('text'), async (ctx) => {
       text.includes('кс') ||
       text.includes('играть')
     ) {
-      const phrase = getRandomPhrase();
+      const phrase = getRandomPhrase(ctx.chat?.id);
       ctx.reply(`💬 ${phrase}\n\nИспользуй /cs чтобы позвать всех!`);
     }
   }
