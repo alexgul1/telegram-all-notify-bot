@@ -199,14 +199,88 @@ bot.on(message('text'), async (ctx) => {
   }
 });
 
+// Middleware для отслеживания update_id
+bot.use((ctx, next) => {
+  if (ctx.update && ctx.update.update_id) {
+    userStore.setLastUpdateId(ctx.update.update_id);
+  }
+  return next();
+});
+
 // Обработка ошибок
 bot.catch((err, ctx) => {
   console.error(`❌ Ошибка для ${ctx.updateType}:`, err);
 });
 
+// Функция для обработки пропущенных updates при запуске
+async function processPendingUpdates(): Promise<number> {
+  const lastUpdateId = userStore.getLastUpdateId();
+  const offset = lastUpdateId ? lastUpdateId + 1 : undefined;
+
+  console.log('🔄 Проверка пропущенных сообщений...');
+  if (offset) {
+    console.log(`   Последний обработанный update: ${lastUpdateId}`);
+  } else {
+    console.log('   Первый запуск, история не обрабатывается');
+  }
+
+  try {
+    // Получаем все пропущенные updates (максимум 100 за раз)
+    const updates = await bot.telegram.getUpdates(offset, 100, 0);
+
+    if (updates.length === 0) {
+      console.log('✅ Нет пропущенных сообщений');
+      return 0;
+    }
+
+    console.log(`📥 Обработка ${updates.length} пропущенных сообщений...`);
+
+    let addedUsers = 0;
+    let processedChats = new Set<number>();
+
+    for (const update of updates) {
+      // Обрабатываем только сообщения с текстом от пользователей
+      if (update.message && 'text' in update.message && update.message.from && !update.message.from.is_bot) {
+        const chatId = update.message.chat.id;
+        const user = update.message.from;
+
+        // Добавляем пользователя
+        userStore.addUser(
+          chatId,
+          user.id,
+          user.username,
+          user.first_name,
+          user.last_name
+        );
+
+        processedChats.add(chatId);
+        addedUsers++;
+      }
+
+      // Обновляем offset
+      userStore.setLastUpdateId(update.update_id);
+    }
+
+    console.log(`✅ Добавлено пользователей: ${addedUsers} из ${processedChats.size} чата(ов)`);
+    return addedUsers;
+  } catch (error) {
+    console.error('❌ Ошибка при обработке пропущенных сообщений:', error);
+    return 0;
+  }
+}
+
 // Запуск бота
 console.log('🚀 Бот запускается...');
-bot.launch()
+
+// Сначала обрабатываем пропущенные updates
+processPendingUpdates()
+  .then((count) => {
+    if (count > 0) {
+      console.log(`📊 База обновлена: +${count} пользователей`);
+    }
+    // Затем запускаем бота в обычном режиме
+    return bot.launch();
+  })
   .then(() => {
     console.log('✅ Бот успешно запущен!');
     console.log(`📱 Бот @${bot.botInfo?.username} готов к работе!`);

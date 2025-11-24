@@ -15,9 +15,15 @@ interface ChatUsers {
   };
 }
 
+interface StoreData {
+  users: ChatUsers;
+  lastUpdateId?: number; // ID последнего обработанного update
+}
+
 export class UserStore {
   private filePath: string;
   private users: ChatUsers = {};
+  private lastUpdateId?: number;
 
   constructor(filePath: string = './data/users.json') {
     this.filePath = filePath;
@@ -36,22 +42,40 @@ export class UserStore {
     try {
       if (fs.existsSync(this.filePath)) {
         const data = fs.readFileSync(this.filePath, 'utf-8');
-        this.users = JSON.parse(data);
-        console.log('✅ База пользователей загружена');
+        const parsed = JSON.parse(data);
+
+        // Поддержка старого формата (только users) и нового (users + lastUpdateId)
+        if (parsed.users) {
+          this.users = parsed.users;
+          this.lastUpdateId = parsed.lastUpdateId;
+        } else {
+          // Старый формат - только users
+          this.users = parsed;
+          this.lastUpdateId = undefined;
+        }
+
+        const updateInfo = this.lastUpdateId ? ` (offset: ${this.lastUpdateId})` : '';
+        console.log(`✅ База пользователей загружена${updateInfo}`);
       } else {
         this.users = {};
+        this.lastUpdateId = undefined;
         this.saveUsers();
         console.log('✅ Создана новая база пользователей');
       }
     } catch (error) {
       console.error('❌ Ошибка при загрузке базы пользователей:', error);
       this.users = {};
+      this.lastUpdateId = undefined;
     }
   }
 
   private saveUsers(): void {
     try {
-      fs.writeFileSync(this.filePath, JSON.stringify(this.users, null, 2), 'utf-8');
+      const data: StoreData = {
+        users: this.users,
+        lastUpdateId: this.lastUpdateId,
+      };
+      fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (error) {
       console.error('❌ Ошибка при сохранении базы пользователей:', error);
     }
@@ -124,5 +148,15 @@ export class UserStore {
     });
 
     return tags.join(' ');
+  }
+
+  // Методы для работы с offset
+  getLastUpdateId(): number | undefined {
+    return this.lastUpdateId;
+  }
+
+  setLastUpdateId(updateId: number): void {
+    this.lastUpdateId = updateId;
+    this.saveUsers();
   }
 }
