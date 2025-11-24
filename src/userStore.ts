@@ -15,14 +15,20 @@ interface ChatUsers {
   };
 }
 
+interface ChatPhrases {
+  [chatId: string]: string[];
+}
+
 interface StoreData {
   users: ChatUsers;
+  customPhrases?: ChatPhrases; // Кастомные фразы для каждого чата
   lastUpdateId?: number; // ID последнего обработанного update
 }
 
 export class UserStore {
   private filePath: string;
   private users: ChatUsers = {};
+  private customPhrases: ChatPhrases = {};
   private lastUpdateId?: number;
 
   constructor(filePath: string = './data/users.json') {
@@ -44,13 +50,15 @@ export class UserStore {
         const data = fs.readFileSync(this.filePath, 'utf-8');
         const parsed = JSON.parse(data);
 
-        // Поддержка старого формата (только users) и нового (users + lastUpdateId)
+        // Поддержка старого формата (только users) и нового (users + lastUpdateId + customPhrases)
         if (parsed.users) {
           this.users = parsed.users;
+          this.customPhrases = parsed.customPhrases || {};
           this.lastUpdateId = parsed.lastUpdateId;
         } else {
           // Старый формат - только users
           this.users = parsed;
+          this.customPhrases = {};
           this.lastUpdateId = undefined;
         }
 
@@ -58,6 +66,7 @@ export class UserStore {
         console.log(`✅ База пользователей загружена${updateInfo}`);
       } else {
         this.users = {};
+        this.customPhrases = {};
         this.lastUpdateId = undefined;
         this.saveUsers();
         console.log('✅ Создана новая база пользователей');
@@ -65,6 +74,7 @@ export class UserStore {
     } catch (error) {
       console.error('❌ Ошибка при загрузке базы пользователей:', error);
       this.users = {};
+      this.customPhrases = {};
       this.lastUpdateId = undefined;
     }
   }
@@ -73,6 +83,7 @@ export class UserStore {
     try {
       const data: StoreData = {
         users: this.users,
+        customPhrases: this.customPhrases,
         lastUpdateId: this.lastUpdateId,
       };
       fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf-8');
@@ -157,6 +168,43 @@ export class UserStore {
 
   setLastUpdateId(updateId: number): void {
     this.lastUpdateId = updateId;
+    this.saveUsers();
+  }
+
+  // Методы для работы с кастомными фразами
+  addCustomPhrase(chatId: number, phrase: string): void {
+    const chatIdStr = chatId.toString();
+
+    if (!this.customPhrases[chatIdStr]) {
+      this.customPhrases[chatIdStr] = [];
+    }
+
+    // Проверяем что такой фразы еще нет
+    if (!this.customPhrases[chatIdStr].includes(phrase)) {
+      this.customPhrases[chatIdStr].push(phrase);
+      this.saveUsers();
+    }
+  }
+
+  getCustomPhrases(chatId: number): string[] {
+    const chatIdStr = chatId.toString();
+    return this.customPhrases[chatIdStr] || [];
+  }
+
+  removeCustomPhrase(chatId: number, index: number): boolean {
+    const chatIdStr = chatId.toString();
+
+    if (this.customPhrases[chatIdStr] && index >= 0 && index < this.customPhrases[chatIdStr].length) {
+      this.customPhrases[chatIdStr].splice(index, 1);
+      this.saveUsers();
+      return true;
+    }
+    return false;
+  }
+
+  clearCustomPhrases(chatId: number): void {
+    const chatIdStr = chatId.toString();
+    delete this.customPhrases[chatIdStr];
     this.saveUsers();
   }
 }
