@@ -63,10 +63,11 @@ Check both boxes:
 - ✅ Allow HTTP traffic
 - ✅ Allow HTTPS traffic
 
-### Step E — Verify the estimate
+### Step E — The estimate will show ~$9 — that is normal
 
-Before clicking Create, check the **Monthly estimate** panel on the right side of the page.
-It should now show **$0.00** (or a very small amount for logging/monitoring that stays within free quota).
+Before clicking Create, the **Monthly estimate** panel will likely show around **$9.11**. This is expected — Google Cloud displays the full rack rate in the preview and does **not** apply the Always Free discount there. The discount is applied on your actual invoice, which will show **$0.00**.
+
+If the estimate shows much more than $9–10, recheck your region and machine type.
 
 Click **Create** and wait ~1 minute for the instance status to show a green checkmark.
 
