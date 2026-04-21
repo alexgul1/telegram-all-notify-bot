@@ -86,6 +86,160 @@ pm2 startup
 pm2 save
 ```
 
+## 🖥️ VPS Deployment
+
+To keep the bot running 24/7 you need a server. Here are the best options:
+
+### Choosing a Server
+
+#### 🆓 Free Options (Always Free)
+
+| Provider | Specs | Cost |
+|----------|-------|------|
+| [Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/) | 1 GB RAM, 1 vCPU (AMD) | **Free forever** |
+| [Google Cloud](https://cloud.google.com/free) | 1 GB RAM, 0.25 vCPU (e2-micro) | **Free forever** |
+
+> **Recommended: Oracle Cloud** — more resources, better performance for bots. A credit card is required to sign up but you will **not** be charged.
+
+#### 💰 Cheap Paid Options (~$3–5/mo)
+
+| Provider | Specs | Cost |
+|----------|-------|------|
+| [Hetzner Cloud](https://www.hetzner.com/cloud) | 2 GB RAM, 1 vCPU, 20 GB SSD | ~€3.5/mo |
+| [Contabo](https://contabo.com/) | 8 GB RAM, 4 vCPU, 50 GB SSD | ~€5/mo |
+| [Vultr](https://www.vultr.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~$2.5/mo |
+| [DigitalOcean](https://www.digitalocean.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~$4/mo |
+
+> **Recommended: Hetzner** — best price/performance in Europe. Servers in Germany, Finland, and the US.
+
+---
+
+### Step-by-step guides for free providers
+
+- [Oracle Cloud Free Tier — full guide](docs/deploy-oracle-cloud.md)
+- [Google Cloud Free Tier — full guide](docs/deploy-google-cloud.md)
+
+---
+
+### General Deployment (Ubuntu 22.04)
+
+#### 1. Create a server
+
+In your provider's control panel:
+1. Create a new server / droplet / instance
+2. Choose **Ubuntu 22.04 LTS** as the OS
+3. Minimum specs: 512 MB RAM, 1 vCPU
+4. Note the assigned **IP address**
+
+#### 2. Connect via SSH
+
+**Windows** (PowerShell or [PuTTY](https://www.putty.org/)):
+```bash
+ssh root@YOUR_SERVER_IP
+```
+
+**Mac / Linux** (Terminal):
+```bash
+ssh root@YOUR_SERVER_IP
+```
+
+#### 3. Update the system
+
+```bash
+apt update && apt upgrade -y
+```
+
+#### 4. Install Node.js 18+
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+apt install -y nodejs
+node --version  # should print v18.x.x or higher
+```
+
+#### 5. Install PM2
+
+```bash
+npm install -g pm2
+```
+
+#### 6. Clone the repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/telegram-all-notify-bot.git
+cd telegram-all-notify-bot
+```
+
+#### 7. Install dependencies and build
+
+```bash
+npm install
+npm run build
+```
+
+#### 8. Create the .env file
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Paste your token:
+
+```env
+BOT_TOKEN=your_token_from_BotFather
+```
+
+Save: `Ctrl+O` → `Enter` → `Ctrl+X`
+
+#### 9. Start the bot
+
+```bash
+pm2 start ecosystem.config.js
+pm2 status              # status should be "online"
+pm2 logs telegram-cs-bot  # verify the logs
+```
+
+#### 10. Enable auto-start on server reboot
+
+```bash
+pm2 startup
+# Copy and run the command PM2 prints (starts with "sudo env ...")
+pm2 save
+```
+
+---
+
+### Updating the bot
+
+```bash
+cd ~/telegram-all-notify-bot
+git pull
+npm run build
+pm2 restart telegram-cs-bot
+```
+
+---
+
+### Basic server hardening
+
+Create a dedicated user instead of running as root:
+
+```bash
+adduser botuser
+usermod -aG sudo botuser
+su - botuser
+```
+
+Enable the firewall (allow SSH only):
+
+```bash
+ufw allow ssh
+ufw enable
+```
+
+---
+
 ## 📱 Использование
 
 ### 1. Добавьте бота в группу
