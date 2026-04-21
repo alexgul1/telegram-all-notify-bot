@@ -86,6 +86,153 @@ pm2 startup
 pm2 save
 ```
 
+## 🖥️ Деплой на VPS
+
+Для постоянной работы бота нужен сервер — иначе он будет работать только пока открыт ваш компьютер.
+
+### Выбор сервера
+
+#### 🆓 Бесплатные варианты
+
+| Провайдер | Характеристики | Стоимость |
+|-----------|----------------|-----------|
+| [Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/) | 1 GB RAM, 1 vCPU (AMD) | **Бесплатно навсегда** |
+| [Google Cloud](https://cloud.google.com/free) | 1 GB RAM, 0.25 vCPU (e2-micro) | **Бесплатно навсегда** |
+
+> **Рекомендуем Oracle Cloud** — даёт больше ресурсов и работает стабильнее для ботов. При регистрации нужна банковская карта, но деньги не снимают.
+
+#### 💰 Дешёвые платные варианты (~3–5€/мес)
+
+| Провайдер | Характеристики | Стоимость |
+|-----------|----------------|-----------|
+| [Hetzner Cloud](https://www.hetzner.com/cloud) | 2 GB RAM, 1 vCPU, 20 GB SSD | ~3.5€/мес |
+| [Contabo](https://contabo.com/) | 8 GB RAM, 4 vCPU, 50 GB SSD | ~5€/мес |
+| [Vultr](https://www.vultr.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~2.5$/мес |
+| [DigitalOcean](https://www.digitalocean.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~4$/мес |
+
+> **Рекомендуем Hetzner** — лучшее соотношение цены и качества в Европе. Сервера в Германии, Финляндии и США.
+
+---
+
+### Пошаговый гайд (Ubuntu 22.04)
+
+#### 1. Создайте сервер
+
+В панели управления вашего провайдера:
+1. Создайте новый сервер / дроплет / инстанс
+2. Выберите **Ubuntu 22.04 LTS** в качестве ОС
+3. Минимальные характеристики: 512 MB RAM, 1 vCPU
+4. Запомните выданный **IP-адрес** сервера
+
+#### 2. Подключитесь по SSH
+
+**Windows** (PowerShell или [PuTTY](https://www.putty.org/)):
+```bash
+ssh root@ВАШ_IP_АДРЕС
+```
+
+**Mac / Linux** (терминал):
+```bash
+ssh root@ВАШ_IP_АДРЕС
+```
+
+#### 3. Обновите систему
+
+```bash
+apt update && apt upgrade -y
+```
+
+#### 4. Установите Node.js 18+
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+apt install -y nodejs
+node --version  # v18.x.x или выше
+```
+
+#### 5. Установите PM2
+
+```bash
+npm install -g pm2
+```
+
+#### 6. Клонируйте репозиторий
+
+```bash
+git clone https://github.com/ВАШ_USERNAME/telegram-all-notify-bot.git
+cd telegram-all-notify-bot
+```
+
+#### 7. Установите зависимости и соберите проект
+
+```bash
+npm install
+npm run build
+```
+
+#### 8. Создайте файл .env
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Вставьте ваш токен:
+
+```env
+BOT_TOKEN=ваш_токен_от_BotFather
+```
+
+Сохраните: `Ctrl+O` → `Enter` → `Ctrl+X`
+
+#### 9. Запустите бота
+
+```bash
+pm2 start ecosystem.config.js
+pm2 status  # Статус должен быть "online"
+pm2 logs telegram-cs-bot  # Проверьте логи
+```
+
+#### 10. Автозапуск после перезагрузки сервера
+
+```bash
+pm2 startup
+# Скопируйте и выполните команду которую выдаст PM2 (начинается с "sudo env ...")
+pm2 save
+```
+
+---
+
+### Обновление бота
+
+```bash
+cd ~/telegram-all-notify-bot
+git pull
+npm run build
+pm2 restart telegram-cs-bot
+```
+
+---
+
+### Базовая защита сервера
+
+Создайте отдельного пользователя вместо root:
+
+```bash
+adduser botuser
+usermod -aG sudo botuser
+su - botuser
+```
+
+Включите файрвол (разрешить только SSH):
+
+```bash
+ufw allow ssh
+ufw enable
+```
+
+---
+
 ## 📱 Использование
 
 ### 1. Добавьте бота в группу
