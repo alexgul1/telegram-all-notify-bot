@@ -22,32 +22,53 @@ Specs: 0.25 vCPU (burst to 2), 1 GB RAM — sufficient for a Telegram bot.
 
 ## Part 2 — Create a VM instance
 
+> **Before you start:** the monthly estimate shown by Google Cloud will display a non-zero price until you make all the correct selections below. Once region, machine type, and disk type are all set correctly the estimate will drop to **$0.00**.
+
 1. Open the [Google Cloud Console](https://console.cloud.google.com/).
 2. In the top search bar, type **"VM instances"** and click the result under Compute Engine.
 3. If prompted, click **Enable** to enable the Compute Engine API (takes ~1 minute).
 4. Click **Create Instance**.
-5. Fill in the form:
 
-   | Field | Value |
-   |-------|-------|
-   | **Name** | `telegram-bot` (or any name) |
-   | **Region** | `us-east1`, `us-west1`, or `us-central1` ← **required for free tier** |
-   | **Zone** | any zone within the chosen region |
-   | **Machine type** | `e2-micro` ← **required for free tier** |
+### Step A — Name and region
 
-6. Under **Boot disk**, click **Change**:
+| Field | Value |
+|-------|-------|
+| **Name** | `telegram-bot` (or any name) |
+| **Region** | `us-east1` (South Carolina) ← **must be one of these three** |
+| **Zone** | any zone in that region (e.g. `us-east1-b`) |
+
+> Only `us-east1`, `us-west1`, and `us-central1` qualify for the Always Free e2-micro.
+> Any other region will be charged (~$6/mo).
+
+### Step B — Machine type
+
+1. Under **Machine configuration**, select series **E2**.
+2. In the **Machine type** dropdown choose **e2-micro** (2 vCPU shared, 1 GB RAM).
+
+### Step C — Boot disk (this is where the $3 charge comes from)
+
+1. Click **Change** under Boot disk.
+2. Set:
    - **Operating system:** Ubuntu
    - **Version:** Ubuntu 22.04 LTS
-   - **Boot disk size:** 30 GB (free tier allows up to 30 GB total)
-   - Click **Select**.
+   - **Boot disk type:** `Standard persistent disk` ← **must be Standard, not Balanced or SSD**
+   - **Size:** 30 GB
+3. Click **Select**.
 
-7. Under **Firewall**, check both:
-   - ✅ Allow HTTP traffic
-   - ✅ Allow HTTPS traffic
+> Balanced and SSD persistent disks cost ~$3/mo. Standard persistent disk (HDD) is free up to 30 GB.
 
-8. Click **Create**.
+### Step D — Firewall
 
-Wait ~1 minute for the instance status to show a green checkmark.
+Check both boxes:
+- ✅ Allow HTTP traffic
+- ✅ Allow HTTPS traffic
+
+### Step E — Verify the estimate
+
+Before clicking Create, check the **Monthly estimate** panel on the right side of the page.
+It should now show **$0.00** (or a very small amount for logging/monitoring that stays within free quota).
+
+Click **Create** and wait ~1 minute for the instance status to show a green checkmark.
 
 ---
 
