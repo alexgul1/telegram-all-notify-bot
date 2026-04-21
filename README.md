@@ -86,124 +86,131 @@ pm2 startup
 pm2 save
 ```
 
-## 🖥️ Деплой на VPS
+## 🖥️ VPS Deployment
 
-Для постоянной работы бота нужен сервер — иначе он будет работать только пока открыт ваш компьютер.
+To keep the bot running 24/7 you need a server. Here are the best options:
 
-### Выбор сервера
+### Choosing a Server
 
-#### 🆓 Бесплатные варианты
+#### 🆓 Free Options (Always Free)
 
-| Провайдер | Характеристики | Стоимость |
-|-----------|----------------|-----------|
-| [Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/) | 1 GB RAM, 1 vCPU (AMD) | **Бесплатно навсегда** |
-| [Google Cloud](https://cloud.google.com/free) | 1 GB RAM, 0.25 vCPU (e2-micro) | **Бесплатно навсегда** |
+| Provider | Specs | Cost |
+|----------|-------|------|
+| [Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/) | 1 GB RAM, 1 vCPU (AMD) | **Free forever** |
+| [Google Cloud](https://cloud.google.com/free) | 1 GB RAM, 0.25 vCPU (e2-micro) | **Free forever** |
 
-> **Рекомендуем Oracle Cloud** — даёт больше ресурсов и работает стабильнее для ботов. При регистрации нужна банковская карта, но деньги не снимают.
+> **Recommended: Oracle Cloud** — more resources, better performance for bots. A credit card is required to sign up but you will **not** be charged.
 
-#### 💰 Дешёвые платные варианты (~3–5€/мес)
+#### 💰 Cheap Paid Options (~$3–5/mo)
 
-| Провайдер | Характеристики | Стоимость |
-|-----------|----------------|-----------|
-| [Hetzner Cloud](https://www.hetzner.com/cloud) | 2 GB RAM, 1 vCPU, 20 GB SSD | ~3.5€/мес |
-| [Contabo](https://contabo.com/) | 8 GB RAM, 4 vCPU, 50 GB SSD | ~5€/мес |
-| [Vultr](https://www.vultr.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~2.5$/мес |
-| [DigitalOcean](https://www.digitalocean.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~4$/мес |
+| Provider | Specs | Cost |
+|----------|-------|------|
+| [Hetzner Cloud](https://www.hetzner.com/cloud) | 2 GB RAM, 1 vCPU, 20 GB SSD | ~€3.5/mo |
+| [Contabo](https://contabo.com/) | 8 GB RAM, 4 vCPU, 50 GB SSD | ~€5/mo |
+| [Vultr](https://www.vultr.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~$2.5/mo |
+| [DigitalOcean](https://www.digitalocean.com/) | 512 MB RAM, 1 vCPU, 10 GB SSD | ~$4/mo |
 
-> **Рекомендуем Hetzner** — лучшее соотношение цены и качества в Европе. Сервера в Германии, Финляндии и США.
+> **Recommended: Hetzner** — best price/performance in Europe. Servers in Germany, Finland, and the US.
 
 ---
 
-### Пошаговый гайд (Ubuntu 22.04)
+### Step-by-step guides for free providers
 
-#### 1. Создайте сервер
+- [Oracle Cloud Free Tier — full guide](docs/deploy-oracle-cloud.md)
+- [Google Cloud Free Tier — full guide](docs/deploy-google-cloud.md)
 
-В панели управления вашего провайдера:
-1. Создайте новый сервер / дроплет / инстанс
-2. Выберите **Ubuntu 22.04 LTS** в качестве ОС
-3. Минимальные характеристики: 512 MB RAM, 1 vCPU
-4. Запомните выданный **IP-адрес** сервера
+---
 
-#### 2. Подключитесь по SSH
+### General Deployment (Ubuntu 22.04)
 
-**Windows** (PowerShell или [PuTTY](https://www.putty.org/)):
+#### 1. Create a server
+
+In your provider's control panel:
+1. Create a new server / droplet / instance
+2. Choose **Ubuntu 22.04 LTS** as the OS
+3. Minimum specs: 512 MB RAM, 1 vCPU
+4. Note the assigned **IP address**
+
+#### 2. Connect via SSH
+
+**Windows** (PowerShell or [PuTTY](https://www.putty.org/)):
 ```bash
-ssh root@ВАШ_IP_АДРЕС
+ssh root@YOUR_SERVER_IP
 ```
 
-**Mac / Linux** (терминал):
+**Mac / Linux** (Terminal):
 ```bash
-ssh root@ВАШ_IP_АДРЕС
+ssh root@YOUR_SERVER_IP
 ```
 
-#### 3. Обновите систему
+#### 3. Update the system
 
 ```bash
 apt update && apt upgrade -y
 ```
 
-#### 4. Установите Node.js 18+
+#### 4. Install Node.js 18+
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 apt install -y nodejs
-node --version  # v18.x.x или выше
+node --version  # should print v18.x.x or higher
 ```
 
-#### 5. Установите PM2
+#### 5. Install PM2
 
 ```bash
 npm install -g pm2
 ```
 
-#### 6. Клонируйте репозиторий
+#### 6. Clone the repository
 
 ```bash
-git clone https://github.com/ВАШ_USERNAME/telegram-all-notify-bot.git
+git clone https://github.com/YOUR_USERNAME/telegram-all-notify-bot.git
 cd telegram-all-notify-bot
 ```
 
-#### 7. Установите зависимости и соберите проект
+#### 7. Install dependencies and build
 
 ```bash
 npm install
 npm run build
 ```
 
-#### 8. Создайте файл .env
+#### 8. Create the .env file
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Вставьте ваш токен:
+Paste your token:
 
 ```env
-BOT_TOKEN=ваш_токен_от_BotFather
+BOT_TOKEN=your_token_from_BotFather
 ```
 
-Сохраните: `Ctrl+O` → `Enter` → `Ctrl+X`
+Save: `Ctrl+O` → `Enter` → `Ctrl+X`
 
-#### 9. Запустите бота
+#### 9. Start the bot
 
 ```bash
 pm2 start ecosystem.config.js
-pm2 status  # Статус должен быть "online"
-pm2 logs telegram-cs-bot  # Проверьте логи
+pm2 status              # status should be "online"
+pm2 logs telegram-cs-bot  # verify the logs
 ```
 
-#### 10. Автозапуск после перезагрузки сервера
+#### 10. Enable auto-start on server reboot
 
 ```bash
 pm2 startup
-# Скопируйте и выполните команду которую выдаст PM2 (начинается с "sudo env ...")
+# Copy and run the command PM2 prints (starts with "sudo env ...")
 pm2 save
 ```
 
 ---
 
-### Обновление бота
+### Updating the bot
 
 ```bash
 cd ~/telegram-all-notify-bot
@@ -214,9 +221,9 @@ pm2 restart telegram-cs-bot
 
 ---
 
-### Базовая защита сервера
+### Basic server hardening
 
-Создайте отдельного пользователя вместо root:
+Create a dedicated user instead of running as root:
 
 ```bash
 adduser botuser
@@ -224,7 +231,7 @@ usermod -aG sudo botuser
 su - botuser
 ```
 
-Включите файрвол (разрешить только SSH):
+Enable the firewall (allow SSH only):
 
 ```bash
 ufw allow ssh
